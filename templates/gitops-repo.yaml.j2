@@ -1,0 +1,16 @@
+apiVersion: v1
+data:
+  enableLfs: {{ repo_enable_lfs | b64encode }}
+  name: {{ repo_name | b64encode }}
+  sshPrivateKey: {{ repo_ssh_private_key.content }}
+  type: {{ repo_type | b64encode }}
+  url: {{ repo_url | b64encode }}
+kind: Secret
+metadata:
+  annotations:
+    managed-by: argocd.argoproj.io
+  labels:
+    argocd.argoproj.io/secret-type: repository
+  name: repo-{{ repo_short_name }} 
+  namespace: openshift-gitops
+type: Opaque

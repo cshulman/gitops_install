@@ -1,0 +1,103 @@
+- hosts: localhost
+  connection: local
+  module_defaults:
+    community.okd.openshift_auth:
+      host: '<cluster-api-url>'
+      validate_certs: False
+#      ca_cert: ca.pem
+  collections:
+    - kubernetes.core
+  vars:
+  - repo_enable_lfs: false
+    repo_name: 'OCP GitOps Config'
+    repo_ssh_private_key_path: '~/.ssh/<your-gitops-key>'
+    repo_type: 'git'
+    repo_url:  'ssh://git@bitbucket<-gitops-config-repo>'
+    repo_short_name: 'ocp-main'
+    gitops_application_name: 'cluster-config'
+  tasks:
+  - block:
+    - name: Log in (obtain access token)
+      community.okd.openshift_auth:
+        username: 'cluster-admin'
+        password: '<cluster-admin-password>'
+      register: openshift_auth_results
+
+    - name: Create GitOps Subscription
+      kubernetes.core.k8s:
+       api_key: "{{ openshift_auth_results.openshift_auth.api_key }}"
+       state: present
+       definition: "{{ lookup('template', './templates/gitops-subscription.yaml.j2') | from_yaml }}"
+
+    - name: Wait until GitOps ArgoCD is available
+      kubernetes.core.k8s:
+        api_version: argoproj.io/v1alpha1
+        kind: ArgoCD
+        namespace: openshift-gitops
+        name: openshift-gitops
+        state: present
+        wait_sleep: 300
+        wait_timeout: 1200
+
+    - name: Patch GitOps ArgoCD to pull admins from group cluster-admins
+      kubernetes.core.k8s:
+        api_key: "{{ openshift_auth_results.openshift_auth.api_key }}"
+        state: present
+        namespace: openshift-gitops
+        definition:
+          apiVersion: argoproj.io/v1alpha1
+          kind: ArgoCD
+          metadata:
+            name: openshift-gitops
+          spec:
+            rbac:
+              policy: g, cluster-admins, role:admin
+
+    - name: Create ClusterRoleBinding so ArgoCD can update cluster
+      kubernetes.core.k8s:
+        api_key: "{{ openshift_auth_results.openshift_auth.api_key }}"
+        state: present
+        namespace: openshift-gitops
+        definition:
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: openshift-gitops-clusteradmin
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: cluster-admin
+          subjects:
+          - kind: ServiceAccount
+            name: openshift-gitops-argocd-application-controller
+            namespace: openshift-gitops
+
+    - name: Update Argo Known Hosts
+      kubernetes.core.k8s:
+       api_key: "{{ openshift_auth_results.openshift_auth.api_key }}"
+       state: present
+       definition: "{{ lookup('file', './files/gitops-known-hosts.yaml') | from_yaml }}"
+
+    - name: Slurp in SSH private key
+      slurp:
+        src: "{{ repo_ssh_private_key_path }}"
+      register: repo_ssh_private_key
+
+    - name: Create Repository Secret
+      kubernetes.core.k8s:
+       api_key: "{{ openshift_auth_results.openshift_auth.api_key }}"
+       state: present
+       definition: "{{ lookup('template', './templates/gitops-repo.yaml.j2') | from_yaml }}"
+
+    - name: Create Initial Configuration Application
+      kubernetes.core.k8s:
+       api_key: "{{ openshift_auth_results.openshift_auth.api_key }}"
+       state: present
+       definition: "{{ lookup('template', './templates/gitops-initial-application.yaml.j2') | from_yaml }}"
+
+    always:
+    - name: If login succeeded, try to log out (revoke access token)
+      when: openshift_auth_results.openshift_auth.api_key is defined
+      community.okd.openshift_auth:
+        state: absent
+        api_key: "{{ openshift_auth_results.openshift_auth.api_key }}"
