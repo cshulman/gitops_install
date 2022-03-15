@@ -29,13 +29,12 @@
        state: present
        definition: "{{ lookup('template', './templates/gitops-subscription.yaml.j2') | from_yaml }}"
 
-    - name: Wait for openshift-gitops namespcace creation
+    - name: Wait for openshift-gitops namespace creation
       kubernetes.core.k8s:
         api_key: "{{ openshift_auth_results.openshift_auth.api_key }}"
         api_version: v1
         kind: Namespace
         name: openshift-gitops
-        state: present
         wait: yes
 
     - name: Wait until GitOps ArgoCD is available
@@ -46,7 +45,8 @@
         namespace: openshift-gitops
         name: openshift-gitops
         state: present
-        wait: yes
+        wait_sleep: 300
+        wait_timeout: 1200
 
     - name: Patch GitOps ArgoCD to pull admins from group cluster-admins
       kubernetes.core.k8s:
