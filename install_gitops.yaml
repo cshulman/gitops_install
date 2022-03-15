@@ -31,6 +31,7 @@
 
     - name: Wait until GitOps ArgoCD is available
       kubernetes.core.k8s:
+        api_key: "{{ openshift_auth_results.openshift_auth.api_key }}"
         api_version: argoproj.io/v1alpha1
         kind: ArgoCD
         namespace: openshift-gitops
