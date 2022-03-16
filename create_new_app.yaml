@@ -11,12 +11,13 @@
     - kubernetes.core
   vars:
   - repo_enable_lfs: false
-    repo_name: 'OCP Cluster GitOps Config'
+    repo_name: 'GitOps Application Config'
     repo_ssh_private_key_path: '~/.ssh/bitbucket_id_rsa'
     repo_type: 'git'
     repo_url: 'git@bitbucket.org:DudeSolutions/sample-app.git'
-    repo_short_name: 'gitops-config'
-    gitops_application_name: 'cluster-gitops-config'
+    repo_short_name: 'gitops-application'
+    gitops_application_name: 'gitops-app'
+    application_namespace: 'gitops-app-namespace'
   tasks:
   - block:
     - name: Log in (obtain access token)
