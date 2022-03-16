@@ -1,10 +1,15 @@
 - hosts: localhost
   connection: local
   module_defaults:
+  module_defaults:
     community.okd.openshift_auth:
       host: '<cluster-api-url>'
       validate_certs: False
-#      ca_cert: ca.pem
+    kubernetes.core.k8s:
+      host: '<cluster-api-url>'
+      validate_certs: False
+    kubernetes.core.k8s_info:
+      host: '<cluster-api-url>'
   collections:
     - kubernetes.core
   vars:
@@ -12,7 +17,7 @@
     repo_name: 'OCP GitOps Config'
     repo_ssh_private_key_path: '~/.ssh/<your-gitops-key>'
     repo_type: 'git'
-    repo_url:  'ssh://git@bitbucket<-gitops-config-repo>'
+    repo_url:  'git@bitbucket<-gitops-config-repo>'
     repo_short_name: 'ocp-main'
     gitops_application_name: 'cluster-config'
   tasks:
